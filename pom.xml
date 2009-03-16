@@ -1,0 +1,118 @@
+<!-- Coral Reef Network Library -->
+
+<project
+    xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+    http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    
+    <parent>
+        <groupId>pl.graniec</groupId>
+        <artifactId>cr</artifactId>
+        <version>1</version>
+    </parent>
+    
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>com.interactivepulp</groupId>
+    <artifactId>pulpcore</artifactId>
+    <packaging>jar</packaging>
+    <version>0.11.4</version>
+    
+    <name>Pulpcore Library</name>
+    <url>http://www.interactivepulp.com/pulpcore/</url>
+    
+    <build>
+        <plugins>
+        
+            <!-- Classifier -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>2.0</version>
+                <extensions>false</extensions>
+                <inherited>true</inherited>
+                <configuration>
+                    <classifier>${coralreef.build}</classifier>
+                </configuration>
+            </plugin>
+            
+        </plugins>
+    </build>
+    
+    <!-- PulpCore debug or release -->
+    <profiles>
+        <profile>
+            <id>pulpcore-debug</id>
+            
+            <activation>
+                <property>
+                    <name>!release</name>
+                </property>
+            </activation>
+            
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>1.1</version>
+                        <executions>
+                            <execution>
+                                <id>add-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/debug/java</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+            
+        </profile>
+        
+        <profile>
+            <id>pulpcore-release</id>
+            
+            <activation>
+                <property>
+                    <name>release</name>
+                </property>
+            </activation>
+            
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>1.1</version>
+                        <executions>
+                            <execution>
+                                <id>add-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/release/java</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+            
+        </profile>
+        
+    </profiles>
+    
+</project>
+

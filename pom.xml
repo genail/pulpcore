@@ -22,6 +22,12 @@
     <name>Pulpcore Library</name>
     <url>http://www.interactivepulp.com/pulpcore/</url>
     
+    <scm>
+        <connection>scm:svn:svn://atom/general/CoralReef/trunk/pulpcore</connection>
+        <developerConnection>scm:svn:svn://atom/general/CoralReef/trunk/pulpcore</developerConnection>
+        <url>svn://atom/general/CoralReef/trunk/pulpcore</url>
+    </scm>
+    
     <build>
         <plugins>
         

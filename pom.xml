@@ -28,24 +28,6 @@
         <url>svn://atom/general/CoralReef/trunk/pulpcore</url>
     </scm>
     
-    <build>
-        <plugins>
-        
-            <!-- Classifier -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>2.0</version>
-                <extensions>false</extensions>
-                <inherited>true</inherited>
-                <configuration>
-                    <classifier>${coralreef.build}</classifier>
-                </configuration>
-            </plugin>
-            
-        </plugins>
-    </build>
-    
     <!-- PulpCore debug or release -->
     <profiles>
         <profile>
@@ -59,6 +41,7 @@
             
             <build>
                 <plugins>
+                
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>build-helper-maven-plugin</artifactId>
@@ -78,6 +61,22 @@
                             </execution>
                         </executions>
                     </plugin>
+                    
+                    <plugin>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                                <configuration>
+                                    <classifier>debug</classifier>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    
                 </plugins>
             </build>
             
@@ -113,6 +112,22 @@
                             </execution>
                         </executions>
                     </plugin>
+                    
+                    <plugin>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                                <configuration>
+                                    <classifier>release</classifier>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    
                 </plugins>
             </build>
             

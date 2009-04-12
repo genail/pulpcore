@@ -53,15 +53,17 @@ import pulpcore.util.StringUtil;
 
 public class ConsoleScene extends Scene2D {
     
-    private static final int LINE_SPACING = CoreFont.getSystemFont().getHeight() + 2;
-        
     private String lastLine;
     private Button backButton;
     private Button clearButton;
     private Button copyButton;
     private ScrollPane textbox;
+    private int lineSpacing;
     
     public void load() {
+
+        // Load lazily so Stage doesn't have to load the system font on <init>
+        lineSpacing = CoreFont.getSystemFont().getHeight() + 2;
         
         add(new FilledSprite(Colors.WHITE));
         
@@ -78,7 +80,7 @@ public class ConsoleScene extends Scene2D {
         
         textbox = new ScrollPane(5, 5, Stage.getWidth() - 10, 
             Stage.getHeight() - 15 - clearButton.height.getAsInt());
-        textbox.setScrollUnitSize(LINE_SPACING);
+        textbox.setScrollUnitSize(lineSpacing);
         textbox.setAnimationDuration(60, 250);
         refresh();
         textbox.scrollEnd();
@@ -147,7 +149,7 @@ public class ConsoleScene extends Scene2D {
             for (int j = 0; j < text.length; j++) {
                 String line = StringUtil.replace(text[j], "\t", "    ");
                 textbox.add(new Label(line, 0, y));
-                y += LINE_SPACING;
+                y += lineSpacing;
                 numLines++;
             }
         }

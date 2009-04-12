@@ -504,6 +504,22 @@ public class CoreMath {
     
     /**
         Clamps a number between two values. If the number <= min returns min; if the number >= max
+        returns max; otherwise returns the number.
+    */
+    public static final float clamp(float n, float min, float max) {
+        if (n <= min) {
+            return min;
+        }
+        else if (n >= max) {
+            return max;
+        }
+        else {
+            return n;
+        }
+    }
+
+    /**
+        Clamps a number between two values. If the number <= min returns min; if the number >= max
         returns max; otherwise returns the number. 
     */
     public static final double clamp(double n, double min, double max) {

@@ -30,6 +30,10 @@
 package pulpcore.platform.applet;
 
 import java.awt.Component;
+import java.awt.DisplayMode;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.image.PixelGrabber;
 import java.awt.MediaTracker;
@@ -264,8 +268,6 @@ public final class AppletAppContext extends AppContext {
         /*
             If "pulpcore_use_bufferstrategy" is neither "true" or "false", then:
             
-            On Java 6, use BufferStrategy on Mac. Otherwise, use BufferedImageSurface
-            
             BufferStrategy has a problem on:
             * Mac OS X 10.5 (Leopard) - uses lots of CPU. Cannot reach 60fps (55fps max).
             * Java 6u10 - softare rendering is slower
@@ -276,10 +278,9 @@ public final class AppletAppContext extends AppContext {
             * Mac OS X + Firefox (using the "apple.awt.MyCPanel" peer) - repaint events are lost 
               when moving the mouse over the applet.
             * Mac OS X (all) - cannot reach 60fps (55fps max).
-            
-            TODO: Test again when 32-bit Java 6 on Mac is available. BufferStrategy still seems to
-            use more processor in some cases, but it's hard to judge because of the different
-            64-bit arch.
+
+            My guess is BufferStrategy is only useful in PulpCore's situation when flipping is
+            used, which seems to never be the case.
         */
         if ("true".equals(useBufferStrategyParam)) {
             useBufferStrategy = true;
@@ -344,7 +345,7 @@ public final class AppletAppContext extends AppContext {
         }
         
         inputSystem = new AppletInput(inputComponent);
-        }
+    }
     
     Component getInputComponent() {
         AppletInput i = inputSystem;
@@ -353,6 +354,42 @@ public final class AppletAppContext extends AppContext {
         }
         else {
             return null;
+        }
+    }
+
+    public int getRefreshRate() {
+        // Apply 55 fps limit on old Java 5 versions on Leopard
+        if (CoreSystem.isMacOSXLeopardOrNewer()) {
+            try {
+                if (System.getProperty("java.version").compareTo("1.5.0_16") < 0) {
+                    return 55;
+                }
+            }
+            catch (Exception ex) { }
+        }
+        try {
+            GraphicsDevice device = null;
+            Component c = getInputComponent();
+            if (c != null) {
+                GraphicsConfiguration gc = c.getGraphicsConfiguration();
+                if (gc != null) {
+                    device = gc.getDevice();
+                }
+            }
+            if (device == null) {
+                device = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+            }
+            int refreshRate = device.getDisplayMode().getRefreshRate();
+            if (refreshRate == DisplayMode.REFRESH_RATE_UNKNOWN) {
+                return 0;
+            }
+            else {
+                return refreshRate;
+            }
+        }
+        catch (Exception ex) {
+            // No known exception should be thrown, but it's here just in case.
+            return 0;
         }
     }
     
@@ -365,7 +402,12 @@ public final class AppletAppContext extends AppContext {
     }
     
     public void pollInput() {
-        inputSystem.pollInput();
+        if (inputSystem != null) {
+            // This happened a few times at pulpgames.net:
+            // java.lang.NullPointerException
+            //     at pulpcore.platform.applet.AppletAppContext.pollInput(Unknown Source)
+            inputSystem.pollInput();
+        }
     }
            
     public PolledInput getPolledInput() {

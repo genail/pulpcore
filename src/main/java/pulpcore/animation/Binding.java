@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2008, Interactive Pulp, LLC
+    Copyright (c) 2009, Interactive Pulp, LLC
     All rights reserved.
     
     Redistribution and use in source and binary forms, with or without 
@@ -35,40 +35,59 @@ import pulpcore.math.CoreMath;
 */
 /* package-private */ final class Binding implements Behavior, PropertyListener {
 
-    /* package-private */ static final int FUNCTION_NONE = 0;
-    /* package-private */ static final int FUNCTION_TO_INT = 1;
-    /* package-private */ static final int FUNCTION_TO_FIXED = 2;
-    /* package-private */ static final int FUNCTION_CUSTOM = 3;
+    private static final int FUNCTION_NONE = 0;
+    private static final int FUNCTION_TO_INT = 1;
+    private static final int FUNCTION_TO_FIXED = 2;
+    private static final int FUNCTION_CUSTOM = 3;
     
     private final Property target;
     private final Property source;
+    private final boolean bidirectional;
     private final BindFunction customFunction;
     private final int function;
     
     /* package-private */ Binding(Property target, BindFunction function) {
         this.target = target;
         this.source = null;
+        this.bidirectional = false;
         this.customFunction = function;
         this.function = FUNCTION_CUSTOM;
     }
     
-    /* package-private */ Binding(Property target, Property source) {
-        this(target, source, FUNCTION_NONE);
-    }
-    
-    /* package-private */ Binding(Property target, Property source, int function) {
+    /* package-private */ Binding(Property target, Property source, boolean bidirectional) {
         this.target = target;
         this.source = source;
+        this.bidirectional = bidirectional;
         this.customFunction = null;
-        this.function = function;
+        if (target instanceof Int && source instanceof Fixed) {
+            this.function = FUNCTION_TO_INT;
+        }
+        else if (target instanceof Fixed && source instanceof Int) {
+            this.function = FUNCTION_TO_FIXED;
+        }
+        else {
+            this.function = FUNCTION_NONE;
+        }
         if (source != target) {
             source.addListener(this);
         }
     }
+
+    public boolean isBidirectional() {
+        return bidirectional;
+    }
+
+    public Property getSource() {
+        return source;
+    }
+
+    public Property getTarget() {
+        return target;
+    }
     
     public void propertyChange(Property property) {
         if (target.getBehavior() != this) {
-            target.removeListener(this);
+            source.removeListener(this);
         }
         else {
             target.setValue(getValue());
@@ -97,5 +116,4 @@ import pulpcore.math.CoreMath;
                 return target.getValue();
         }
     }
-    
 }

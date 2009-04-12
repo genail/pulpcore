@@ -430,7 +430,8 @@ public final class AppletPlatform implements Platform {
         clipboardText = text;
     }
     
-    public Object getJNLPService(String service) {
+    /*
+     public Object getJNLPService(String service) {
         try {
              Class c = Class.forName("javax.jnlp.ServiceManager");
              Method m = c.getMethod("lookup", new Class[] { String.class });
@@ -440,6 +441,7 @@ public final class AppletPlatform implements Platform {
             return null;
         }
     }
+     */
     
     //
     // Sound

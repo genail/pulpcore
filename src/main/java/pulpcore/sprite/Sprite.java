@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2008, Interactive Pulp, LLC
+    Copyright (c) 2009, Interactive Pulp, LLC
     All rights reserved.
     
     Redistribution and use in source and binary forms, with or without 
@@ -29,6 +29,9 @@
 
 package pulpcore.sprite;
 
+import java.util.WeakHashMap;
+import pulpcore.Build;
+import pulpcore.CoreSystem;
 import pulpcore.animation.Bool;
 import pulpcore.animation.Easing;
 import pulpcore.animation.Fixed;
@@ -44,6 +47,9 @@ import pulpcore.math.Transform;
 import pulpcore.math.Tuple2i;
 import pulpcore.scene.Scene2D;
 import pulpcore.Stage;
+import pulpcore.image.CoreImage;
+import pulpcore.image.filter.Filter;
+import pulpcore.image.filter.FilterChain;
 
 /**
     The superclass of all sprites. Contains location, dimension, alpha, 
@@ -53,8 +59,11 @@ import pulpcore.Stage;
     method to draw.
 */
 public abstract class Sprite implements PropertyListener {
+
+    // WeakHashMap<Filter, null>
+    private static final WeakHashMap usedFilters = new WeakHashMap();
     
-    private static final Transform IDENTITY = new Transform();
+    static final Transform IDENTITY = new Transform();
 
     //
     // Text anchors
@@ -157,15 +166,14 @@ public abstract class Sprite implements PropertyListener {
     public final Fixed height = new Fixed(this);
     
     /** 
-        The angle of this Sprite, typically in range from 0 to 
-        {@link pulpcore.math.CoreMath#TWO_PI}, although the angle can
-        have any value. The Sprite is rotated around its anchor.
+        The angle of this Sprite, typically in range from 0 to 2*PI,
+        although the angle can have any value. The Sprite is rotated around its anchor.
     */
     public final Fixed angle = new Fixed(this);
 
     /** 
         The alpha of this Sprite, in range from 0 to 255. A value of 0 is fully 
-        tranaparent and a value of 255 is fully opaque. The default is 255.
+        transparent and a value of 255 is fully opaque. The default is 255.
     */
     public final Int alpha = new Int(this, 0xff);
     
@@ -185,17 +193,16 @@ public abstract class Sprite implements PropertyListener {
     */
     public final Bool pixelSnapping = new Bool(this, false);
     
-    //
-    // Private fields
-    //
-    
-    private int cursor = -1;
+    private Group parent;
     private int anchor = DEFAULT;
+    private int cursor = -1;
     private BlendMode blendMode = null;
+    private SpriteFilter filter;
+    private Object tag;
+
+    // State information
     private int cosAngle = CoreMath.ONE;
     private int sinAngle = 0;
-    
-    private Group parent;
     private int parentTransformModCount;
     private boolean dirty = true;
     private boolean transformDirty = true;
@@ -227,6 +234,35 @@ public abstract class Sprite implements PropertyListener {
         this.y.set(y);
         this.width.set(width);
         this.height.set(height);
+    }
+
+    /**
+        Gets this Sprite's tag.
+        @see #setTag(Object)
+        @see Group#findWithTag(Object)
+    */
+    public Object getTag() {
+        return tag;
+    }
+
+    /**
+        Sets this Sprite's tag. The tag can be used for marking the sprite or storing information
+        with it. Different Sprites can share identical tags. By default, the tag is {@code null}.
+        @see #getTag()
+        @see Group#findWithTag(Object)
+    */
+    public void setTag(Object tag) {
+        this.tag = tag;
+    }
+
+    /**
+        Returns true if this Sprite is opaque. In other words, before applying transforms and alpha,
+        all the pixels within it's bounds are drawn and are themselves opaque.
+        <p>
+        Returns false by default.
+    */
+    public boolean isOpaque() {
+        return false;
     }
     
     /**
@@ -311,17 +347,6 @@ public abstract class Sprite implements PropertyListener {
     }
     
     /**
-        On a property change this Sprite is marked as dirty.
-    */
-    public void propertyChange(Property property) {
-        setDirty(true);
-        if (property == angle) {
-            cosAngle = CoreMath.cos(angle.getAsFixed());
-            sinAngle = CoreMath.sin(angle.getAsFixed());
-        }
-    }
-    
-    /**
         For dirty rectangles - most apps will not need ot call this method directly.
     */
     public final Rect getDirtyRect() {
@@ -339,8 +364,19 @@ public abstract class Sprite implements PropertyListener {
     public final boolean updateDirtyRect() {
         
         boolean changed = false;
-        boolean isUnconstrainedGroup = 
-            (this instanceof Group) && !((Group)this).isOverflowClipped();
+        boolean isUnconstrainedGroup = false;
+        if (this instanceof Group) {
+            Group group = (Group)this;
+            if (!group.isOverflowClipped()) {
+                isUnconstrainedGroup = true;
+            }
+            else if ((group.getNaturalWidth() == 0 || group.getNaturalHeight() == 0) &&
+                    getWorkingFilter() == null)
+            {
+                // Group has backbuffer that covers the stage, but no filter
+                isUnconstrainedGroup = true;
+            }
+        }
         
         if (visible.get() == false || alpha.get() <= 0 || isUnconstrainedGroup) {
             changed = (getDirtyRect() != null);
@@ -362,7 +398,28 @@ public abstract class Sprite implements PropertyListener {
                 t.concatenate(viewTransform);
             }
             
-            changed |= t.getBounds(getNaturalWidth(), getNaturalHeight(), dirtyRect);
+            int w = getNaturalWidth();
+            int h = getNaturalHeight();
+
+            Filter f = getWorkingFilter();
+            if (f != null && (w == 0 || h == 0)) {
+                // Back buffer covers stage
+                t = d;
+                w = CoreMath.toFixed(Stage.getWidth());
+                h = CoreMath.toFixed(Stage.getHeight());
+            }
+            else if (f != null) {
+                int fx = f.getX();
+                int fy = f.getY();
+                if (fx != 0 || fy != 0) {
+                    t = new Transform(t);
+                    t.translate(CoreMath.toFixed(fx),CoreMath.toFixed(fy));
+                }
+                w = CoreMath.toFixed(f.getWidth());
+                h = CoreMath.toFixed(f.getHeight());
+            }
+            
+            changed |= t.getBounds(w, h, dirtyRect);
         }
         
         return changed;
@@ -376,34 +433,42 @@ public abstract class Sprite implements PropertyListener {
             dirtyRect.width = -1;
         }
     }
-    
+
+    // NOTE:
+    // We need differentiate between "contentsDirty" and "transformDirty".
+    // At the moment, some classes (Group, Scene2D) are assuming setDirty(true) sets one
+    // (or both) fields dirty.
+
     /**
         Marks this Sprite as dirty, which will force it to redraw on the next frame.
     */
     public final void setDirty(boolean dirty) {
+        setDirty(dirty, dirty);
+    }
+
+    private final void setDirty(boolean dirty, boolean contentsChanged) {
         this.dirty = dirty;
         if (dirty) {
             transformDirty = true;
         }
+        if (contentsChanged && filter != null) {
+            filter.setDirty();
+        }
     }
-    
+
     /**
         Returns true if the Sprite's properties have changed since the last call to draw()
     */
     public final boolean isDirty() {
+        if (!dirty) {
+            Filter f = getWorkingFilter();
+            if (f != null && f.isDirty()) {
+                setDirty(true);
+            }
+        }
         return dirty;
     }
-    
-    /* package-private */ final Transform getViewTransform() {
-        updateTransform();
-        return viewTransform;
-    }
-    
-    /* package-private */ final Transform getDrawTransform() {
-        updateTransform();
-        return drawTransform;
-    }
-    
+
     /* package-private */ final boolean isTransformDirty() {
         if (transformDirty) {
             return true;
@@ -415,6 +480,16 @@ public abstract class Sprite implements PropertyListener {
             return (parentTransformModCount != parent.getTransformModCount() ||
                 parent.isTransformDirty());
         }
+    }
+
+    /* package-private */ final Transform getViewTransform() {
+        updateTransform();
+        return viewTransform;
+    }
+
+    /* package-private */ final Transform getDrawTransform() {
+        updateTransform();
+        return drawTransform;
     }
     
     /* package-private */ final Transform getParentViewTransform() {
@@ -431,7 +506,7 @@ public abstract class Sprite implements PropertyListener {
             return Stage.getDefaultTransform();
         }
         else if (parent.hasBackBuffer()) {
-            return IDENTITY;
+            return parent.getBackBufferTransform();
         }
         else {
             return parent.getDrawTransform();
@@ -504,10 +579,22 @@ public abstract class Sprite implements PropertyListener {
         }
     }
 
+    /**
+        Gets the fixed-point value of the Sprite's natural width. Subclasses will override this
+        method to specify the natural width. The natural width is the width of the Sprite if no
+        scaling is applied - for an {@link ImageSprite}, the natural width is the
+        width of the image.
+    */
     protected int getNaturalWidth() {
         return width.getAsFixed();
     }
     
+    /**
+        Gets the fixed-point value of the Sprite's natural height. Subclasses will override this
+        method to specify the natural height. The natural height is the height of the Sprite if no
+        scaling is applied - for an {@link ImageSprite}, the natural height is the
+        height of the image.
+    */
     protected int getNaturalHeight() {
         return height.getAsFixed();
     }
@@ -598,7 +685,6 @@ public abstract class Sprite implements PropertyListener {
         this.cursor = -1;
     }
     
-    
     /**
         Gets the cursor for this Sprite. If a cursor is not defined for this Sprite, the parent's
         cursor is used.
@@ -634,8 +720,190 @@ public abstract class Sprite implements PropertyListener {
     
     public final BlendMode getBlendMode() {
         return blendMode;
-    }    
-    
+    }
+
+    /**
+        Sets the image filter for this Sprite.
+        If this Sprite is a Group with no backbuffer, a backbuffer is created.
+        The default filter is {@code null}.
+        <p>
+        If the specified filter is already attached to a Sprite, a clone of it is created.
+        @see #getFilter()
+    */
+    public final void setFilter(Filter filter) {
+        Filter currFilter = getFilter();
+        Filter newFilter = filter;
+        if (currFilter != newFilter) {
+            setDirty(true);
+            synchronized (usedFilters) {
+                if (currFilter != null) {
+                    currFilter.setInput(null);
+                    markAsUnused(currFilter);
+                    this.filter = null;
+                }
+                
+                newFilter = copyIfUsed(newFilter);
+
+                if (newFilter != null) {
+                    markAsUsed(newFilter);
+                    this.filter = new SpriteFilter(this, newFilter);
+                    if ((this instanceof Group) && !((Group)this).hasBackBuffer()) {
+                        ((Group)this).createBackBuffer();
+                    }
+                }
+            }
+        }
+    }
+
+    private Filter copyIfUsed(Filter filter) {
+        if (filter != null && usedFilters.containsKey(filter)) {
+            filter = filter.copy();
+        }
+        if (filter instanceof FilterChain) {
+            FilterChain chain = (FilterChain)filter;
+            for (int i = 0; i < chain.size(); i++) {
+                chain.set(i, copyIfUsed(chain.get(i)));
+            }
+        }
+        return filter;
+    }
+
+    private Filter markAsUsed(Filter filter) {
+        if (filter != null) {
+            usedFilters.put(filter, null);
+        }
+        if (filter instanceof FilterChain) {
+            FilterChain chain = (FilterChain)filter;
+            for (int i = 0; i < chain.size(); i++) {
+                markAsUsed(chain.get(i));
+            }
+        }
+        return filter;
+    }
+
+    private Filter markAsUnused(Filter filter) {
+        if (filter != null) {
+            usedFilters.remove(filter);
+        }
+        if (filter instanceof FilterChain) {
+            FilterChain chain = (FilterChain)filter;
+            for (int i = 0; i < chain.size(); i++) {
+                markAsUnused(chain.get(i));
+            }
+        }
+        return filter;
+    }
+
+    /**
+        Gets the image filter for this Sprite, or null if there is no filter.
+        @see #setFilter(pulpcore.image.filter.Filter) 
+    */
+    public final Filter getFilter() {
+        if (filter != null) {
+            return filter.getFilter();
+        }
+        else {
+            return null;
+        }
+    }
+
+    /* package-private */ Filter getWorkingFilter() {
+        Filter f = getFilter();
+        if (f != null) {
+            if ((this instanceof Group) && !((Group)this).hasBackBuffer()) {
+                // Ignore filters on groups with no back buffer
+                return null;
+            }
+            else {
+                // Make sure input is up to date
+                f.setInput(filter.getCacheImage());
+            }
+        }
+        return f;
+    }
+
+    private static class SpriteFilter {
+        private final Sprite sprite;
+        private final Filter filter;
+        private CoreImage cache = null;
+        private boolean cacheDirty = true;
+
+        public SpriteFilter(Sprite sprite, Filter filter) {
+            this.sprite = sprite;
+            this.filter = filter;
+            this.filter.setDirty();
+            this.filter.setInput(getCacheImage());
+        }
+
+        public Filter getFilter() {
+            return filter;
+        }
+
+        private int getCacheWidth() {
+            if (sprite instanceof Group && ((Group)sprite).hasBackBuffer()) {
+                return ((Group)sprite).getBackBuffer().getWidth();
+            }
+            else {
+                return CoreMath.toIntCeil(sprite.getNaturalWidth());
+            }
+        }
+
+        private int getCacheHeight() {
+            if (sprite instanceof Group && ((Group)sprite).hasBackBuffer()) {
+                return ((Group)sprite).getBackBuffer().getHeight();
+            }
+            else {
+                return CoreMath.toIntCeil(sprite.getNaturalHeight());
+            }
+        }
+
+        public void setDirty() {
+            filter.setDirty();
+            cacheDirty = true;
+        }
+
+        public CoreImage getCacheImage() {
+            if (sprite instanceof ImageSprite) {
+                return ((ImageSprite)sprite).getImage();
+            }
+            else if (sprite instanceof Group && ((Group)sprite).hasBackBuffer()) {
+                // Update the back buffer
+                cache = null;
+                if (cacheDirty) {
+                    sprite.drawSprite(null);
+                    cacheDirty = false;
+                }
+                return ((Group)sprite).getBackBuffer();
+            }
+            else {
+                int w = getCacheWidth();
+                int h = getCacheHeight();
+                boolean isOpaque = sprite.isOpaque();
+                boolean needsClear = true;
+                if (cache == null ||
+                    cache.getWidth() != w ||
+                    cache.getHeight() != h ||
+                    cache.isOpaque() != isOpaque)
+                {
+                    cache = new CoreImage(w, h, isOpaque);
+                    //pulpcore.CoreSystem.print("New Sprite cache: " + w + "x" + h);
+                    cacheDirty = true;
+                    needsClear = false;
+                }
+                if (cacheDirty) {
+                    //pulpcore.CoreSystem.print("Sprite re-cached");
+                    CoreGraphics g = cache.createGraphics();
+                    if (needsClear) {
+                        g.clear();
+                    }
+                    sprite.drawSprite(g);
+                    cacheDirty = false;
+                }
+                return cache;
+            }
+        }
+    }
+
     /**
         Updates all of this Sprite's properties. Subclasses that override this method should
         call super.update().
@@ -650,18 +918,34 @@ public abstract class Sprite implements PropertyListener {
         visible.update(elapsedTime);
         enabled.update(elapsedTime);
         pixelSnapping.update(elapsedTime);
-    }
-    
-    public final void draw(CoreGraphics g) {
-        if (isDirty()) {
-            updateTransform();
-            setDirty(false);
+
+        Filter f = getWorkingFilter();
+        if (f != null) {
+            f.update(elapsedTime);
         }
-        
+    }
+
+    /**
+        On a property change this Sprite is marked as dirty.
+    */
+    public void propertyChange(Property property) {
+        // The following properties don't change the contents, by default:
+        // x, y, width, height, alpha, angle, visible, enabled, pixelSnapping
+        setDirty(true, false);
+        if (property == angle) {
+            cosAngle = CoreMath.cos(angle.getAsFixed());
+            sinAngle = CoreMath.sin(angle.getAsFixed());
+        }
+    }
+
+    /**
+        Draws the Sprite. Subclasses override {@link #drawSprite(pulpcore.image.CoreGraphics) }.
+     */
+    public final void draw(CoreGraphics g) {
         if (!visible.get()) {
             return;
         }
-        
+
         // Set alpha
         int newAlpha = alpha.get();
         int oldAlpha = g.getAlpha();
@@ -671,6 +955,12 @@ public abstract class Sprite implements PropertyListener {
         if (newAlpha <= 0) {
             return;
         }
+
+        if (isDirty()) {
+            updateTransform();
+            setDirty(false);
+        }
+        
         g.setAlpha(newAlpha);
         
         // Set blend mode
@@ -680,23 +970,58 @@ public abstract class Sprite implements PropertyListener {
         }
         
         // Set transform
+        Transform t = drawTransform;
+        Filter f = getWorkingFilter();
+        if (f != null) {
+            int fx = f.getX();
+            int fy = f.getY();
+            if (fx != 0 || fy != 0) {
+                t = new Transform(t);
+                t.translate(CoreMath.toFixed(fx), CoreMath.toFixed(fy));
+            }
+        }
+
+        // Set transform
         g.pushTransform();
-        g.setTransform(drawTransform);
-        
+        g.setTransform(t);
+
         // Draw
-        drawSprite(g);
+        int oldEdgeClamp = g.getEdgeClamp();
+        if (f != null) {
+            if (this instanceof ImageSprite) {
+                // Respect the antiAlias setting
+                boolean antiAlias = ((ImageSprite)this).antiAlias.get();
+                g.setEdgeClamp(antiAlias ? CoreGraphics.EDGE_CLAMP_NONE :
+                    CoreGraphics.EDGE_CLAMP_ALL);
+            }
+            g.drawImage(f.getOutput());
+        }
+        else {
+            drawSprite(g);
+        }
         
         // Undo changes
         g.popTransform();
         g.setAlpha(oldAlpha);
         g.setBlendMode(oldBlendMode);
+        g.setEdgeClamp(oldEdgeClamp);
     }
     
     /**
-        Draws the sprite. The graphic context's alpha is set to this sprite,
+        Draws the sprite. The graphic context's alpha is set to this sprite's alpha,
         and it's translation is offset by this sprite's location.
         This method is not called if the sprite is not visible or it's alpha
         is less than or equal to zero.
+        <p>
+        This method may be called multiple times for each dirty rectangle. The clip of the
+        graphics context will be set to the current dirty rectangle.
+        <p>
+        When the contents of this sprite change (in another words, the graphic output of this method
+        will be different from the last time it is called), subclasses should call
+        {@code setDirty(true)}.
+        <p>
+        Implementors should not save a reference to the graphics context as it can change
+        between calls to this method.
     */
     protected abstract void drawSprite(CoreGraphics g);
     

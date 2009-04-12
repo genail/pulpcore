@@ -35,6 +35,7 @@ import pulpcore.image.Colors;
 import pulpcore.image.CoreFont;
 import pulpcore.image.CoreGraphics;
 import pulpcore.Input;
+import pulpcore.animation.Property;
 import pulpcore.math.CoreMath;
 import pulpcore.math.Transform;
 
@@ -345,8 +346,8 @@ public class TextField extends Sprite {
         }
         else if (position > 0) {
             String displayText = convertToDisplayText(text);
-            int x = font.getStringWidth(displayText, scrollPosition, position);
-            if (x >= CoreMath.toInt(getNaturalWidth())) {
+            int scrollX = font.getStringWidth(displayText, scrollPosition, position);
+            if (scrollX >= CoreMath.toInt(getNaturalWidth())) {
                 return false;
             }
         }
@@ -401,6 +402,13 @@ public class TextField extends Sprite {
                 len = font.getStringWidth(text, scrollPosition, i + 1);
             }
             return displayText.length();
+        }
+    }
+
+    public void propertyChange(Property property) {
+        super.propertyChange(property);
+        if (property == selectionColor || property == caretColor) {
+            setDirty(true);
         }
     }
     
@@ -528,8 +536,8 @@ public class TextField extends Sprite {
             return;
         }
         
-        String text = convertToDisplayText(getSelectedText());
-        CoreSystem.setClipboardText(text);
+        String clipboardText = convertToDisplayText(getSelectedText());
+        CoreSystem.setClipboardText(clipboardText);
     }
     
     // Coverts text to stars ("*******") if password mode is enabled

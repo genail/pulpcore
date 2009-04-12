@@ -469,9 +469,7 @@ public class StretchableSprite extends ImageSprite {
     protected void drawSprite(CoreGraphics g) {
         CoreImage image = getImage();
         if (image != null) {
-            int oldEdgeClamp = g.getEdgeClamp();
             drawSections(g, image);
-            g.setEdgeClamp(oldEdgeClamp);
         }
     }
     
@@ -508,7 +506,7 @@ public class StretchableSprite extends ImageSprite {
                 }
 
                 // Set edge clamp
-                int clamp = 0;
+                int clamp = antiAlias.get() ? 0 : CoreGraphics.EDGE_CLAMP_ALL;
                 if (i > 0) {
                     clamp |= CoreGraphics.EDGE_CLAMP_TOP;
                 }

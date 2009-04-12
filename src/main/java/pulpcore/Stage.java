@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2008, Interactive Pulp, LLC
+    Copyright (c) 2009, Interactive Pulp, LLC
     All rights reserved.
     
     Redistribution and use in source and binary forms, with or without 
@@ -69,14 +69,16 @@ public class Stage implements Runnable {
     
     /** No limit to the frame rate (not recommended) */
     public static final int MAX_FPS = -1;
-    /** 60 fps  (default) */
+    /** 60 fps */
     public static final int HIGH_FPS = 60;
     /** 30 fps */
     public static final int MEDIUM_FPS = 30;
     /** 15 fps */
     public static final int LOW_FPS = 15;
-    /** 60 fps  (default) */
-    public static final int DEFAULT_FPS = HIGH_FPS;
+    /** 60 fps, or the screen's refresh rate if it is between 55hz and 65hz. */
+    public static final int DEFAULT_FPS = 0;
+
+    private static final int DEFAULT_DEFAULT_FPS = HIGH_FPS;
     
     /** Perform no auto scaling (default) */
     public static final int AUTO_OFF = 0;
@@ -108,7 +110,7 @@ public class Stage implements Runnable {
     
     // Stage info
     private int desiredFPS = DEFAULT_FPS;
-    private long frameRateDelay = 1000000L / desiredFPS;
+    private long frameRateDelay = 1000000L / DEFAULT_DEFAULT_FPS;
     private double actualFPS = -1;
     private long remainderMicros;
     private Thread animationThread;
@@ -228,7 +230,7 @@ public class Stage implements Runnable {
             return;
         }
         
-        if (desiredFPS < 1) {
+        if (desiredFPS < 0) {
             desiredFPS = MAX_FPS;
         }
         
@@ -242,14 +244,8 @@ public class Stage implements Runnable {
         }
         else {
             int fps = desiredFPS;
-            // Apply 55 fps limit on old Java 5 versions on Leopard
-            if (fps > 55 && CoreSystem.isMacOSXLeopardOrNewer()) {
-                try {
-                    if (System.getProperty("java.version").compareTo("1.5.0_16") < 0) {
-                        fps = 55;
-                    }
-                }
-                catch (Exception ex) { }
+            if (fps == 0) {
+                fps = getDefaultFrameRate();
             }
             instance.frameRateDelay = 1000000L / fps;
         }
@@ -262,7 +258,21 @@ public class Stage implements Runnable {
         @see #getActualFrameRate()
     */
     public static int getFrameRate() {
-        return getThisStage().desiredFPS;
+        int fps = getThisStage().desiredFPS;
+        if (fps == 0) {
+            fps = getDefaultFrameRate();
+        }
+        return fps;
+    }
+
+    private static int getDefaultFrameRate() {
+        int fps = CoreSystem.getThisAppContext().getRefreshRate();
+        if (fps >= DEFAULT_DEFAULT_FPS - 5 && fps <= DEFAULT_DEFAULT_FPS + 5) {
+            return fps;
+        }
+        else {
+            return DEFAULT_DEFAULT_FPS;
+        }
     }
     
     /**
@@ -710,17 +720,16 @@ public class Stage implements Runnable {
                     infoOverlay.draw(g);
                 }
             }
-            doInfoSample();
                 
             // Send pending sound data to sound system
             // (Don't create the sound engine if it's not already created)
             if (CoreSystem.getPlatform().isSoundEngineCreated()) {
-                double fps = actualFPS > 0 ? actualFPS : desiredFPS > 0 ? desiredFPS : 60;
+                double fps = actualFPS > 0 ? actualFPS : desiredFPS > 0 ? desiredFPS : getDefaultFrameRate();
                 int estimatedTimeUntilNextUpdate = Math.max(elapsedTime, 
                     (int)Math.round(1000 / fps));
                 CoreSystem.getPlatform().updateSoundEngine(estimatedTimeUntilNextUpdate);
             }
-            
+
             // Show surface (blocks until surface is updated)
             long surfaceSleepTimeMicros;
             if (surface.contentsLost() || numDirtyRectangles < 0) {
@@ -729,14 +738,14 @@ public class Stage implements Runnable {
             else {
                 surfaceSleepTimeMicros = surface.show(dirtyRectangles, numDirtyRectangles);
             }
-            
+
             appContext.notifyFrameComplete();
-            
+
             // Sleep to create correct frame rate
             long currTimeMicros;
             if (frameRateDelay == 0) {
                 if (Build.DEBUG) {
-                    overlaySleepTime += surfaceSleepTimeMicros / 1000;
+                    overlaySleepTime += surfaceSleepTimeMicros;
                 }
                 currTimeMicros = CoreSystem.getTimeMicros();
             }
@@ -748,14 +757,15 @@ public class Stage implements Runnable {
                 nextTimeMicros += frameRateDelay;
                 if (currTimeMicros > nextTimeMicros) {
                     nextTimeMicros = currTimeMicros + frameRateDelay;
-                }
+                }          
 
                 if (Build.DEBUG) {
                     long sleepTimeMicros = currTimeMicros - priorToSleepTime;
-                    overlaySleepTime += (surfaceSleepTimeMicros + sleepTimeMicros) / 1000;
+                    overlaySleepTime += surfaceSleepTimeMicros + sleepTimeMicros;
                 }
             }
-            
+            doInfoSample();
+
             // Update elapsed time
             long elapsedTimeMicros = currTimeMicros - lastTimeMicros + remainderMicros;
             elapsedTime = (int)(elapsedTimeMicros / 1000);
@@ -810,7 +820,20 @@ public class Stage implements Runnable {
         boolean nextSceneLoaded = false;
         
         if (currentScene == null) {
-            currentScene = CoreSystem.getThisAppContext().createFirstScene();
+            try {
+                currentScene = CoreSystem.getThisAppContext().createFirstScene();
+            }
+            catch (Throwable ex) {
+                if (Build.DEBUG) {
+                    CoreSystem.print("Couldn't create first scene", ex);
+                    if ((ex instanceof NoClassDefFoundError) &&
+                            ex.getMessage().indexOf("ScalaObject") != -1)
+                    {
+                        CoreSystem.print("To run Scala PulpCore apps in a browser, " +
+                                "compile the app in release mode.");
+                    }
+                }
+            }
             if (currentScene == null) {
                 if (Build.DEBUG) {
                     CoreSystem.print("Couldn't create first scene");
@@ -1016,34 +1039,33 @@ public class Stage implements Runnable {
         
         if (overlayCreationTime == 0) {
             overlayFrames = 0;
-            overlayCreationTime = CoreSystem.getTimeMillis();
+            overlayCreationTime = CoreSystem.getTimeMicros();
             return;
         }
         
         overlayFrames++;
         
-        long time = CoreSystem.getTimeMillis() - overlayCreationTime;
-        if (time < 500) {
+        long time = CoreSystem.getTimeMicros() - overlayCreationTime;
+        if (time < 500000) {
             return;
         }
         
         // For release mode, just calculate the frame rate and return;
-        actualFPS = overlayFrames * 1000.0 / time;
+        actualFPS = overlayFrames * 1000000.0 / time;
         if (!Build.DEBUG) {
             overlayFrames = 0;
-            overlayCreationTime = CoreSystem.getTimeMillis();
+            overlayCreationTime = CoreSystem.getTimeMicros();
             return;
         }
         
         // Take a sample of CPU, memory, and Scene info
         int fixedFPS = CoreMath.toFixed(actualFPS);
-        //int fixedFPS = (int)(1000L*CoreMath.toFixed(overlayFrames) / time);
-        int sleepTime = CoreMath.toFixed((float)overlaySleepTime / overlayFrames);
-        int fixedCPU = CoreMath.ONE - (int)(CoreMath.toFixed(overlaySleepTime) / time);
+        int sleepTime = CoreMath.toFixed((float)overlaySleepTime / (1000*overlayFrames));
+        int fixedCPU = CoreMath.toFixed(1-(float)overlaySleepTime / time);
         
         overlayFrames = 0;
         overlaySleepTime = 0;
-        overlayCreationTime = CoreSystem.getTimeMillis();
+        overlayCreationTime = CoreSystem.getTimeMicros();
         
         String fps = CoreMath.toString(fixedFPS, 1) + " fps";
         if (sleepTime > 0) {

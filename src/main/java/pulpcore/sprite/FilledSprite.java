@@ -33,6 +33,7 @@ import pulpcore.animation.Color;
 import pulpcore.image.CoreGraphics;
 import pulpcore.math.CoreMath;
 import pulpcore.Stage;
+import pulpcore.animation.Property;
 
 /**
     Solid-colored rectangluar shaped sprite.
@@ -66,6 +67,13 @@ public class FilledSprite extends Sprite {
     public FilledSprite(double x, double y, double w, double h, int fillColor) {
         super(x, y, w, h);
         this.fillColor.set(fillColor);
+    }
+
+    public void propertyChange(Property p) {
+        super.propertyChange(p);
+        if (p == width || p == height || p == fillColor || p == borderColor) {
+            setDirty(true);
+        }
     }
     
     public final void setBorderSize(int borderSize) {

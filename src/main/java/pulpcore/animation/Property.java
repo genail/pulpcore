@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2008, Interactive Pulp, LLC
+    Copyright (c) 2009, Interactive Pulp, LLC
     All rights reserved.
     
     Redistribution and use in source and binary forms, with or without 
@@ -59,6 +59,8 @@ public abstract class Property {
     protected abstract void setValue(Number value);
     
     public abstract boolean equals(Object obj);
+
+    public abstract int hashCode();
     
     /**
         Sets the value for this property. If the new value is different from the old value,
@@ -88,9 +90,32 @@ public abstract class Property {
         @param behavior The new behavior.
     */
     public final void setBehavior(Behavior behavior) {
+        Binding bidirectionalBinding = null;
+        if (isBehaviorBidirectionalBinding()) {
+            bidirectionalBinding = (Binding)this.behavior;
+        }
+
+        // Set behavior and update value immediately
         this.behavior = behavior;
-        // Set the value immediately
         update(0);
+
+        // Inverse the bi-directional binding, if any. 
+        if (bidirectionalBinding != null) {
+            Property source = bidirectionalBinding.getSource();
+            Property target;
+            if (isBehaviorBidirectionalBinding()) {
+                target = ((Binding)this.behavior).getTarget();
+            }
+            else {
+                target = bidirectionalBinding.getTarget();
+            }
+            source.setBehavior(new Binding(source, target, true));
+        }
+    }
+
+    private boolean isBehaviorBidirectionalBinding() {
+        return this.behavior != null && this.behavior instanceof Binding &&
+                ((Binding)this.behavior).isBidirectional();
     }
     
     /**
@@ -193,12 +218,14 @@ public abstract class Property {
         value is immediately set.
     */
     public final void stopAnimation(boolean gracefully) {
-        if (behavior != null && gracefully) {
-            // Make a copy in case the behavior reference is changed in fastForward()
-            Behavior b = behavior;
-            b.fastForward();
-            setValue(b.getValue());
+        if (!isBehaviorBidirectionalBinding()) {
+            if (behavior != null && gracefully) {
+                // Make a copy in case the behavior reference is changed in fastForward()
+                Behavior b = behavior;
+                b.fastForward();
+                setValue(b.getValue());
+            }
+            behavior = null;
         }
-        behavior = null;
     }
 }

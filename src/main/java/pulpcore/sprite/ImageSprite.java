@@ -30,6 +30,7 @@
 package pulpcore.sprite;
 
 import pulpcore.animation.Bool;
+import pulpcore.animation.Property;
 import pulpcore.image.CoreGraphics;
 import pulpcore.image.CoreImage;
 import pulpcore.math.CoreMath;
@@ -41,6 +42,9 @@ import pulpcore.math.CoreMath;
     <p>
     By default, ImageSprites use pixel-level checking for intersection tests. Use 
     {@link #setPixelLevelChecks(boolean) } to disable this feature.
+    <p>
+    If you change the pixels of this ImageSprite's CoreImage, call
+    {@code sprite.setDirty(true)}.
 */
 public class ImageSprite extends Sprite {
     
@@ -126,11 +130,15 @@ public class ImageSprite extends Sprite {
             height.set(image.getHeight());
         }
     }
+
+    public boolean isOpaque() {
+        return image.isOpaque();
+    }
     
     /**
         Gets this ImageSprite's internal image.
     */
-    public CoreImage getImage() {
+    public final CoreImage getImage() {
         return image;
     }
     
@@ -163,6 +171,13 @@ public class ImageSprite extends Sprite {
             if (changed) {
                 setDirty(true);
             }
+        }
+    }
+
+    public void propertyChange(Property p) {
+        super.propertyChange(p);
+        if (p == antiAlias) {
+            setDirty(true);
         }
     }
     
@@ -225,15 +240,12 @@ public class ImageSprite extends Sprite {
             return super.isTransparent(localX, localY);
         }
     }
-    
+
     protected void drawSprite(CoreGraphics g) {
         if (image != null) {
-            int oldEdgeClamp = g.getEdgeClamp();
-            int newEdgeClamp = antiAlias.get() ? CoreGraphics.EDGE_CLAMP_NONE :
-                CoreGraphics.EDGE_CLAMP_ALL;
-            g.setEdgeClamp(newEdgeClamp);
+            g.setEdgeClamp(antiAlias.get() ? CoreGraphics.EDGE_CLAMP_NONE :
+                CoreGraphics.EDGE_CLAMP_ALL);
             g.drawImage(image);
-            g.setEdgeClamp(oldEdgeClamp);
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2008, Interactive Pulp, LLC
+    Copyright (c) 2009, Interactive Pulp, LLC
     All rights reserved.
     
     Redistribution and use in source and binary forms, with or without 
@@ -85,12 +85,23 @@ public final class Bool extends Property {
     }
     
     /**
-        Binds this property to the specified property.
+        Binds this property to the specified property. If this property is given a new behavior,
+        the binding is broken.
     */
     public void bindTo(Bool property) {
-        setBehavior(new Binding(this, property));
+        setBehavior(new Binding(this, property, false));
     }
     
+    /**
+        Bi-directionally binds this property to the specified property.
+        If this property is given a new behavior, the specified property is then bi-directionally
+        bound to this property. The binding is permanent, until a new bi-directional binding
+        is specified.
+    */
+    public void bindWithInverse(Bool property) {
+        setBehavior(new Binding(this, property, true));
+    }
+
     /**
         Binds this property to the specified function.
     */

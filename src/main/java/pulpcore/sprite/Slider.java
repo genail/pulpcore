@@ -29,7 +29,6 @@
 
 package pulpcore.sprite;
 
-import pulpcore.animation.Bool;
 import pulpcore.animation.Fixed;
 import pulpcore.animation.Property;
 import pulpcore.image.CoreGraphics;
@@ -110,6 +109,7 @@ public class Slider extends Sprite {
     public void propertyChange(Property property) {
         super.propertyChange(property);
         if (property == value) {
+            setDirty(true);
             // Clamp the value.
             // Keep things in fixed-point to avoid floating point error
             int fValue = value.getAsFixed();

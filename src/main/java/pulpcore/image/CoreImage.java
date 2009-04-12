@@ -413,6 +413,21 @@ public class CoreImage {
         The hotspot is copied as-is, with no translation.
     */
     public CoreImage crop(int x, int y, int w, int h) {
+
+        if (x < 0) {
+            w += x;
+            x = 0;
+        }
+        if (y < 0) {
+            h += y;
+            y = 0;
+        }
+        if (x + w > getWidth()) {
+            w = Math.max(0, getWidth() - x);
+        }
+        if (y + h > getHeight()) {
+            h = Math.max(0, getHeight() - y);
+        }
         
         CoreImage croppedImage = new CoreImage(w, h, isOpaque);
         croppedImage.setHotspot(hotspotX, hotspotY);

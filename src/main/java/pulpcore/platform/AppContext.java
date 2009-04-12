@@ -270,6 +270,12 @@ public abstract class AppContext {
     public abstract int getCursor();
     
     public abstract void setCursor(int cursor);
+
+    /**
+        Gets the refresh rate of the app's screen, or 0 if the refresh rate could not be
+        determined.
+    */
+    public abstract int getRefreshRate();
     
     public void notifyFrameComplete() { };
   

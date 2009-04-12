@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2008, Interactive Pulp, LLC
+    Copyright (c) 2009, Interactive Pulp, LLC
     All rights reserved.
     
     Redistribution and use in source and binary forms, with or without 
@@ -129,8 +129,29 @@ public class JavaSound implements SoundEngine {
     }
     
     private void init() {
-        
-        mixer = AudioSystem.getMixer(null);
+
+        try {
+            mixer = AudioSystem.getMixer(null);
+        }
+        catch (IllegalArgumentException ex) {
+            // Try alternative strategy
+            Mixer.Info[] mixerInfo = AudioSystem.getMixerInfo();
+            for (int i = 0; i < mixerInfo.length; i++) {
+                try {
+                    mixer = AudioSystem.getMixer(mixerInfo[i]);
+                    if (mixer != null) {
+                        break;
+                    }
+                }
+                catch (IllegalArgumentException ex2) {
+                    // Ignore
+                }
+            }
+        }
+        if (mixer == null) {
+            state = STATE_FAILURE;
+            return;
+        }
         
         // Calculate the max number of simultaneous sounds for each sample rate
         int numSampleRates = 0;
@@ -173,7 +194,7 @@ public class JavaSound implements SoundEngine {
 
             // Play a buffer's worth of silence to warm up HotSpot (helps remove popping)
             for (int i = 0; i < sampleRates.length; i++) {
-                Sound noSound = new SilentSound(sampleRates[0], 0);
+                Sound noSound = new SilentSound(sampleRates[i], 0);
                 play(null, noSound, new Fixed(1), new Fixed(0), false);
             }
             
@@ -252,6 +273,10 @@ public class JavaSound implements SoundEngine {
         
         if (Build.DEBUG) {
             CoreSystem.print("Unsupported sample rate (" + sound.getSampleRate() + "Hz): " + sound);
+            CoreSystem.print("  Available rates:");
+            for (int i = 0; i < sampleRates.length; i++) {
+                CoreSystem.print("  " + sampleRates[i] + "Hz");
+            }
         }
         return false;
     }
@@ -442,11 +467,9 @@ public class JavaSound implements SoundEngine {
             this.numFrames = numFrames;
         }
         
-        
         public int getNumFrames() {
             return numFrames;
         }
-        
         
         public void getSamples(byte[] dest, int destOffset, int destChannels,
             int srcFrame, int numFrames)

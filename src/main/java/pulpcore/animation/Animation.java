@@ -202,7 +202,7 @@ public abstract class Animation {
     public final int getNumLoops() {
         return numLoops;
     }
-    
+
     public final int getLoopDelay() {
         return loopDelay;
     }
@@ -229,10 +229,52 @@ public abstract class Animation {
     
     private final int getAnimTime(int elapsedTime) {
         int animTime = elapsedTime - startDelay;
-        if (animTime >= 0 && numLoops != 1) {
-            animTime %= (duration + loopDelay);
+        if (animTime > 0 && numLoops != 1) {
+            if (numLoops == LOOP_FOREVER) {
+                animTime %= (duration + loopDelay);
+            }
+            else {
+                int total = getTotalDuration() - startDelay;
+                if (animTime >= total) {
+                    animTime -= total + duration + loopDelay;
+                }
+                else {
+                    animTime %= (duration + loopDelay);
+                }
+            }
         }
         return animTime;
+    }
+
+    /**
+        Returns -1 if time < startDelay
+    */
+    /* package private */ final int getAnimLoop(int elapsedTime) {
+        int animTime = elapsedTime - startDelay;
+        if (animTime < 0) {
+            return -1;
+        }
+        else if (duration + loopDelay <= 0) {
+            return 0;
+        }
+        else {
+            int loop = animTime / (duration + loopDelay);
+            if (numLoops == LOOP_FOREVER) {
+                return loop;
+            }
+            else {
+                return Math.min(numLoops-1, loop);
+            }
+        }
+    }
+
+    private final int getLoopStartTime(int loop) {
+        if (loop < 0) {
+            return 0;
+        }
+        else {
+            return startDelay + loop * (duration + loopDelay);
+        }
     }
     
     /* package-private */ final int getSection() {
@@ -282,10 +324,37 @@ public abstract class Animation {
     }
     
     public boolean update(int elapsedTime) {
-        return setTime(this.elapsedTime + elapsedTime);
+        return update(elapsedTime, false);
+    }
+
+    /* package private */ boolean update(int elapsedTime, boolean parentLooped) {
+        int newTime = this.elapsedTime + elapsedTime;
+        int oldLoop = getAnimLoop(this.elapsedTime);
+        int newLoop = getAnimLoop(newTime);
+        if (oldLoop != newLoop && elapsedTime > 0) {
+            // Trigger events
+            for (int i = oldLoop; i < newLoop; i++) {
+                if (!setTime(getLoopStartTime(i+1))) {
+                    updateState(duration);
+                }
+            }
+            if (this.elapsedTime != newTime) {
+                setTime(newTime);
+            }
+            return true;
+        }
+        else if (parentLooped) {
+            if (!setTime(newTime)) {
+                updateState(duration);
+            }
+            return true;
+        }
+        else {
+            return setTime(newTime);
+        }
     }
     
-    private final boolean setTime(int newTime) {
+    private final boolean setTime(int newTime) {   
         // Takes care of special case where elapsedTime, startDelay and duration are 0
         int oldState = (elapsedTime <= 0) ? SECTION_START_DELAY : getSection();
         this.elapsedTime = newTime;

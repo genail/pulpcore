@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2008, Interactive Pulp, LLC
+    Copyright (c) 2009, Interactive Pulp, LLC
     All rights reserved.
     
     Redistribution and use in source and binary forms, with or without 
@@ -819,25 +819,40 @@ public class Scene2D extends Scene {
         
         // Update the Group dirty rect.
         // Groups only have a dirty rect if isOverflowClipped() is true
-        Rect clip = group.getDirtyRect();
-        if (clip != null) {
+        Rect oldClip = group.getDirtyRect();
+        if (oldClip != null) {
             if (oldParentClip == null) {
-                oldParentClip = new Rect(clip);
+                oldParentClip = new Rect(oldClip);
             }
             else {
                 oldParentClip = new Rect(oldParentClip);
-                oldParentClip.intersection(clip);
+                oldParentClip.intersection(oldClip);
             }
         }
-        group.updateDirtyRect();
-        clip = group.getDirtyRect();
-        if (clip != null) {
+        boolean parentBoundsChanged = group.updateDirtyRect();
+        Rect newClip = group.getDirtyRect();
+        if (newClip != null) {
             if (parentClip == null) {
-                parentClip = new Rect(clip);
+                parentClip = new Rect(newClip);
             }
             else {
                 parentClip = new Rect(parentClip);
-                parentClip.intersection(clip);
+                parentClip.intersection(newClip);
+            }
+            // Special case: Group has a dirty filter
+            if (group.hasBackBuffer() && group.getFilter() != null && group.isDirty()) {
+                addDirtyRectangle(null, parentClip);
+            }
+        }
+
+        if (!parentBoundsChanged) {
+            if (oldParentClip != parentClip) {
+                if (oldParentClip == null || parentClip == null) {
+                    parentBoundsChanged = true;
+                }
+                else {
+                    parentBoundsChanged = !oldParentClip.equals(parentClip);
+                }
             }
         }
         
@@ -845,7 +860,13 @@ public class Scene2D extends Scene {
         ArrayList removedSprites = group.getRemovedSprites();
         if (removedSprites != null) {
             for (int i = 0; i < removedSprites.size(); i++) {
-                notifyRemovedSprite(oldParentClip, (Sprite)removedSprites.get(i));
+                if (removedSprites.get(i) == group) {
+                    // Special case: Group had a filter that was removed
+                    addDirtyRectangle(null, oldParentClip);
+                }
+                else {
+                    notifyRemovedSprite(oldParentClip, (Sprite)removedSprites.get(i));
+                }
             }
         }
         
@@ -862,7 +883,7 @@ public class Scene2D extends Scene {
                 else {
                     addDirtyRectangle(oldParentClip, sprite.getDirtyRect());
                     boolean boundsChanged = sprite.updateDirtyRect();
-                    if (boundsChanged) {
+                    if (parentBoundsChanged || boundsChanged) {
                         addDirtyRectangle(parentClip, sprite.getDirtyRect());
                     }
                 }

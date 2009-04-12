@@ -35,6 +35,7 @@ import pulpcore.animation.event.SoundEvent;
 import pulpcore.animation.event.TimelineEvent;
 import pulpcore.Build;
 import pulpcore.math.CoreMath;
+import pulpcore.math.Path;
 import pulpcore.scene.Scene;
 import pulpcore.sound.Sound;
 import pulpcore.sprite.Sprite;
@@ -57,6 +58,8 @@ public final class Timeline extends Animation {
     private int remainderMicros;
     
     private int lastAnimTime = 0;
+    private int lastTime;
+    private boolean lastParentLooped;
     
     public Timeline() {
         this(null, 0);
@@ -138,7 +141,7 @@ public final class Timeline extends Animation {
     }
     
     //@Override
-    public boolean update(int elapsedTime) {
+    boolean update(int elapsedTime, boolean parentLooped) {
         if (!playing || playSpeed == 0) {
             elapsedTime = 0;
         }
@@ -150,33 +153,49 @@ public final class Timeline extends Animation {
             elapsedTime = (int)(timeMicros / 1000);
             remainderMicros = (int)(timeMicros % 1000);
         }
-        return super.update(elapsedTime);
+        lastParentLooped = parentLooped;
+        return super.update(elapsedTime, parentLooped);
     }
         
     protected void updateState(int animTime) {
-        // First, update those animations that were previously in SECTION_ANIMATION
-        for (int i = 0; i < animationList.size(); i++) {
-            Animation anim = (Animation)animationList.get(i);
-            if (anim.getSection(lastAnimTime) == SECTION_ANIMATION) {
-                boolean active = anim.update(animTime - anim.getTime());
+        int oldLoop = getAnimLoop(lastTime);
+        int newLoop = getAnimLoop(getTime());
+        boolean looped = lastParentLooped || (newLoop != oldLoop);
+        if (looped) {
+            for (int i = 0; i < animationList.size(); i++) {
+                Animation anim = (Animation)animationList.get(i);
+                boolean active = anim.update(animTime - anim.getTime(), true);
                 if (active && anim instanceof Behavior) {
                     ((Property)propertyList.get(i)).setValue(((Behavior)anim).getValue());
                 }
             }
         }
-        
-        // Next, update all other animations
-        for (int i = 0; i < animationList.size(); i++) {
-            Animation anim = (Animation)animationList.get(i);
-            if (anim.getSection(lastAnimTime) != SECTION_ANIMATION) {
-                boolean active = anim.update(animTime - anim.getTime());
-                if (active && anim instanceof Behavior) {
-                    ((Property)propertyList.get(i)).setValue(((Behavior)anim).getValue());
+        else {
+            // First, update those animations that were previously in SECTION_ANIMATION
+            for (int i = 0; i < animationList.size(); i++) {
+                Animation anim = (Animation)animationList.get(i);
+                if (anim.getSection(lastAnimTime) == SECTION_ANIMATION) {
+                    boolean active = anim.update(animTime - anim.getTime(), false);
+                    if (active && anim instanceof Behavior) {
+                        ((Property)propertyList.get(i)).setValue(((Behavior)anim).getValue());
+                    }
+                }
+            }
+
+            // Next, update all other animations
+            for (int i = 0; i < animationList.size(); i++) {
+                Animation anim = (Animation)animationList.get(i);
+                if (anim.getSection(lastAnimTime) != SECTION_ANIMATION) {
+                    boolean active = anim.update(animTime - anim.getTime(), false);
+                    if (active && anim instanceof Behavior) {
+                        ((Property)propertyList.get(i)).setValue(((Behavior)anim).getValue());
+                    }
                 }
             }
         }
         
-        lastAnimTime = animTime;        
+        lastAnimTime = animTime;
+        lastTime = getTime();
     }
     
     //
@@ -190,7 +209,6 @@ public final class Timeline extends Animation {
         This method provides an alternative syntax for delayed animations:
         <pre>
         timeline.at(500).animate(sprite.alpha, 0, 255, 500);
-        timeline.at(1000).set(sprite.enabled, true);
         </pre>
         @param time Time in milliseconds.
         @return the child timeline.
@@ -199,6 +217,43 @@ public final class Timeline extends Animation {
         Timeline child = new Timeline(Easing.NONE, time);
         add(child);
         return child;
+    }
+
+    /**
+        Creates a child timeline that starts at end of this timeline.
+        <p>
+        This method provides an alternative syntax for delayed animations:
+        <pre>
+        timeline.animate(sprite.alpha, 0, 255, 500);
+        timeline.after().set(sprite.enabled, true);
+        </pre>
+        @return the child timeline.
+    */
+    public Timeline after() {
+        return after(0);
+    }
+
+    /**
+        Creates a child timeline that starts at the specified time relative to the end of this
+        timeline.
+        <p>
+        This method provides an alternative syntax for delayed animations. This code animates
+        a sprite from x1 to x2, waits one second, then animates back from x2 to x1.
+        <pre>
+        timeline.animate(sprite.x, x1, x2, 500);
+        timeline.after(1000).animate(sprite.x, x2, x1, 500);
+        </pre>
+        @param time Time in milliseconds (after the current end of this Timeline).
+        @return the child timeline.
+    */
+    public Timeline after(int time) {
+        int t = getDuration();
+        if (t == LOOP_FOREVER) {
+            return at(time);
+        }
+        else {
+            return at(time + t);
+        }
     }
     
     /**
@@ -635,7 +690,43 @@ public final class Timeline extends Animation {
         animateTo(sprite.x, x, duration, easing, startDelay);
         animateTo(sprite.y, y, duration, easing, startDelay);
     }        
-    
+
+    //
+    // Move on path convenience methods
+    //
+
+    public void move(Sprite sprite, Path path, double startP, double endP, int duration) {
+        path.moveOnTimeline(this, sprite, startP, endP, duration, null, 0);
+    }
+
+    public void move(Sprite sprite, Path path, double startP, double endP, int duration,
+        Easing easing)
+    {
+        path.moveOnTimeline(this, sprite, startP, endP, duration, easing, 0);
+    }
+
+    public void move(Sprite sprite, Path path, double startP, double endP, int duration,
+        Easing easing, int startDelay)
+    {
+        path.moveOnTimeline(this, sprite, startP, endP, duration, easing, startDelay);
+    }
+
+    public void moveAndRotate(Sprite sprite, Path path, double startP, double endP, int duration) {
+        path.moveAndRotateOnTimeline(this, sprite, startP, endP, duration, null, 0);
+    }
+
+    public void moveAndRotate(Sprite sprite, Path path, double startP, double endP, int duration,
+        Easing easing)
+    {
+        path.moveAndRotateOnTimeline(this, sprite, startP, endP, duration, easing, 0);
+    }
+
+    public void moveAndRotate(Sprite sprite, Path path, double startP, double endP, int duration,
+        Easing easing, int startDelay)
+    {
+        path.moveAndRotateOnTimeline(this, sprite, startP, endP, duration, easing, startDelay);
+    }
+
     //
     // Scale as int convenience methods
     //

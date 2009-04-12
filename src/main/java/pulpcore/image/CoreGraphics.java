@@ -482,18 +482,22 @@ public class CoreGraphics {
 
         int dx = x2 - x1;
         int dy = y2 - y1;
-        if (dx == 0 || dy == 0) {
-            if (dx == 0 && dy == 0) {
-                // Do nothing
-            }
-            else {
-                // Horizontal and vertical lines
-                pushTransform();
-                transform.clear();
-                transform.translate(Math.min(x1, x2), Math.min(y1, y2));
-                internalFillRect(CoreMath.abs(dx) + CoreMath.ONE, CoreMath.abs(dy) + CoreMath.ONE);
-                popTransform();
-            }
+        if (dx == 0 && dy == 0) {
+            // Do nothing
+        }
+        else if ((dx == 0 || dy == 0) && (transform.getType() == Transform.TYPE_IDENTITY ||
+                transform.getType() == Transform.TYPE_TRANSLATE))
+        {
+            // Horizontal and vertical lines
+            int nx1 = transform.transformX(x1, y1);
+            int ny1 = transform.transformY(x1, y1);
+            int nx2 = transform.transformX(x2, y2);
+            int ny2 = transform.transformY(x2, y2);
+            pushTransform();
+            transform.clear();
+            transform.translate(Math.min(nx1, nx2), Math.min(ny1, ny2));
+            internalFillRect(CoreMath.abs(dx) + CoreMath.ONE, CoreMath.abs(dy) + CoreMath.ONE);
+            popTransform();
         }
         else {
             internalDrawLine(x1, y1, x2, y2, true);

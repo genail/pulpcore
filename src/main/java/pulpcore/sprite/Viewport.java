@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2008, Interactive Pulp, LLC
+    Copyright (c) 2009, Interactive Pulp, LLC
     All rights reserved.
     
     Redistribution and use in source and binary forms, with or without 
@@ -33,6 +33,7 @@ import pulpcore.animation.Bool;
 import pulpcore.animation.Fixed;
 import pulpcore.image.BlendMode;
 import pulpcore.image.CoreGraphics;
+import pulpcore.math.CoreMath;
 import pulpcore.math.Rect;
 import pulpcore.math.Transform;
 import pulpcore.math.Tuple2i;
@@ -115,7 +116,7 @@ public class Viewport extends Group {
                 Tuple2i subP = getMaxLocation((Group)sprite);
                 Transform transform = new Transform();
                 sprite.updateTransform(null, transform);
-                transform.getBounds(subP.x, subP.y, bounds);
+                transform.getBounds(CoreMath.toFixed(subP.x), CoreMath.toFixed(subP.y), bounds);
             }
             else if (sprite != null) {
                 sprite.getRelativeBounds(bounds);
@@ -221,20 +222,5 @@ public class Viewport extends Group {
     */
     public void moveDown(Sprite sprite) {
         getContentPane().moveDown(sprite);
-    }
-    
-    protected void drawSprite(CoreGraphics g) {
-        if (!hasBackBuffer()) {
-            Transform t = g.getTransform();
-            Rect oldClip = g.getClip();
-            Rect newClip = new Rect();
-            t.getBounds(width.getAsFixed(), height.getAsFixed(), newClip);
-            g.clipRect(newClip);
-            super.drawSprite(g);
-            g.setClip(oldClip);
-        }
-        else {
-            super.drawSprite(g);
-        }
     }
 }

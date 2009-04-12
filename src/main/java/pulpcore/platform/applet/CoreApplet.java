@@ -150,8 +150,8 @@ public final class CoreApplet extends Applet {
             Class c = Class.forName(sceneName);
             firstScene = (Scene)c.newInstance();
         }
-        catch (Throwable t) {
-            if (Build.DEBUG) CoreSystem.print("Could not create Scene: " + sceneName, t);
+        catch (Exception ex) {
+            if (Build.DEBUG) CoreSystem.print("Could not create Scene: " + sceneName, ex);
             return null;
         }
         

@@ -128,6 +128,10 @@ public class Label extends Sprite {
     
     public void propertyChange(Property p) {
         super.propertyChange(p);
+
+        if (p == numDisplayChars) {
+            setDirty(true);
+        }
         
         if (p == numDisplayChars || 
             (p == super.width && !autoWidth) || 

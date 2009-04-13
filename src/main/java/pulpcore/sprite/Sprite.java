@@ -71,8 +71,10 @@ public abstract class Sprite implements PropertyListener {
     
     /** 
         Constant for positioning the anchor point at the "default" location
-        of the Sprite, which is usually its upper-left corner. One exception is
-        ImageSprite which uses the image's hotspot at the default anchor. 
+        of the Sprite, which is at the start its upper-left corner and can
+        be changed by setting anchorX and anchorY property.  One exception is
+        ImageSprite which uses the image's hotspot at the default anchor. This
+        also can be modified any time by changing properties. 
         This is the default anchor.
     */
     public static final int DEFAULT = 0;
@@ -164,6 +166,20 @@ public abstract class Sprite implements PropertyListener {
     
     /** The height of this Sprite. */
     public final Fixed height = new Fixed(this);
+    
+    /**
+        The x anchor point of this Sprite, in range from 0.0 to 1.0. A value of
+        0.0 is far left point of the Sprite and a value of 1.0 is far right point.
+        The default is 0.0.
+    */
+    public final Fixed anchorX = new Fixed(this);
+    
+    /**
+	    The y anchor point of this Sprite, in range from 0.0 to 1.0. A value of
+	    0.0 is far top point of the Sprite and a value of 1.0 is far bottom point.
+	    The default is 0.0.
+	*/
+    public final Fixed anchorY = new Fixed(this);
     
     /** 
         The angle of this Sprite, typically in range from 0 to 2*PI,
@@ -604,7 +620,10 @@ public abstract class Sprite implements PropertyListener {
         {@code getNaturalWidth() - CoreMath.ONE}.
     */
     protected int getAnchorX() {
-        if ((anchor & HCENTER) != 0) {
+    	if (anchor == DEFAULT) {
+            return CoreMath.round(CoreMath.mul(anchorX.getAsFixed(), getNaturalWidth()));
+        }
+    	else if ((anchor & HCENTER) != 0) {
             // Special case: make sure centered sprites are drawn on an integer boundary
             return CoreMath.floor(getNaturalWidth() / 2);
         }
@@ -612,7 +631,7 @@ public abstract class Sprite implements PropertyListener {
             return getNaturalWidth() - CoreMath.ONE;
         }
         else {
-            return 0;
+        	return 0;
         }
     }
     
@@ -621,6 +640,9 @@ public abstract class Sprite implements PropertyListener {
         {@code getNaturalHeight() - CoreMath.ONE}.
     */
     protected int getAnchorY() {
+    	if (anchor == DEFAULT) {
+    		return CoreMath.round(CoreMath.mul(anchorY.getAsFixed(), getNaturalHeight()));
+    	}
         if ((anchor & VCENTER) != 0) {
             // Special case: make sure centered sprites are drawn on an integer boundary
             return CoreMath.floor(getNaturalHeight() / 2);
@@ -629,7 +651,7 @@ public abstract class Sprite implements PropertyListener {
             return getNaturalHeight() - CoreMath.ONE;
         }
         else {
-            return 0;
+        	return 0;
         }
     }
     
@@ -649,8 +671,9 @@ public abstract class Sprite implements PropertyListener {
           +----+----+
         SW     S     SE
         </pre>
-        The {@link #DEFAULT} anchor is equivilant to {@link #NORTH_WEST} for most Sprites (except
-        for ImageSprites, which use the CoreImage's hotspot as the anchor).
+        The {@link #DEFAULT} anchor uses {@link #anchorX} and {@link #anchorY} properties
+        to determine anchor location. The default is {@link #NORTH_WEST} for most Sprites
+        (except for ImageSprites, which set the CoreImage's hotspot as the anchor).  
     */
     public final void setAnchor(int anchor) {
         if (this.anchor != anchor) {
@@ -913,6 +936,8 @@ public abstract class Sprite implements PropertyListener {
         y.update(elapsedTime);
         width.update(elapsedTime);
         height.update(elapsedTime);
+        anchorX.update(elapsedTime);
+        anchorY.update(elapsedTime);
         alpha.update(elapsedTime);
         angle.update(elapsedTime);
         visible.update(elapsedTime);

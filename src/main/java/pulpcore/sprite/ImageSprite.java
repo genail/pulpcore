@@ -94,6 +94,19 @@ public class ImageSprite extends Sprite {
         if (h < 0) {
             height.set(image.getHeight());
         }
+        
+        anchorX.setAsFixed(
+        		CoreMath.div(
+        				CoreMath.toFixed(image.getHotspotX()),
+        				CoreMath.toFixed(image.getWidth()))
+        );
+        
+        anchorY.setAsFixed(
+        		CoreMath.div(
+        				CoreMath.toFixed(image.getHotspotY()),
+        				CoreMath.toFixed(image.getHeight())
+        		)
+        );
     }
     
     /**
@@ -211,24 +224,6 @@ public class ImageSprite extends Sprite {
         }
         else {
             return super.getNaturalHeight();
-        }
-    }
-    
-    protected int getAnchorX() {
-        if (image != null && getAnchor() == DEFAULT) {
-            return CoreMath.toFixed(image.getHotspotX());
-        }
-        else {
-            return super.getAnchorX();
-        }
-    }
-    
-    protected int getAnchorY() {
-        if (image != null && getAnchor() == DEFAULT) {
-            return CoreMath.toFixed(image.getHotspotY());
-        }
-        else {
-            return super.getAnchorY();
         }
     }
     

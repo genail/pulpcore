@@ -31,6 +31,7 @@ package pulpcore.sprite;
 
 import java.util.ArrayList;
 import java.util.List;
+import pulpcore.animation.BindFunction;
 import pulpcore.image.Colors;
 import pulpcore.image.CoreGraphics;
 import pulpcore.image.CoreImage;
@@ -403,26 +404,33 @@ public class StretchableSprite extends ImageSprite {
     // Sprite implementation
     //
    
-    protected int getAnchorX() {
-        CoreImage image = getImage();
-        if (image != null && getAnchor() == DEFAULT) {
-            return CoreMath.toFixed(borderSize) + 
-                convertImageXtoLocalX(CoreMath.toFixed(image.getHotspotX() - borderSize));
-        }
-        else {
-            return super.getAnchorX();
-        }
-    }
-    
-    protected int getAnchorY() {
-        CoreImage image = getImage();
-        if (image != null && getAnchor() == DEFAULT) {
-            return CoreMath.toFixed(borderSize) + 
-                convertImageYtoLocalY(CoreMath.toFixed(image.getHotspotY() - borderSize));
-        }
-        else {
-            return super.getAnchorY();
-        }
+    public void setAnchorToHotSpot() {
+        anchorX.bindTo(new BindFunction() {
+            public Number f() {
+                CoreImage image = getImage();
+                if (image != null && topSections != null) {
+                    int ax = CoreMath.toFixed(borderSize) +
+                        convertImageXtoLocalX(CoreMath.toFixed(image.getHotspotX() - borderSize));
+                    return new Double(CoreMath.toDouble(ax) / image.getWidth());
+                }
+                else {
+                    return new Double(0);
+                }
+            }
+        });
+        anchorY.bindTo(new BindFunction() {
+            public Number f() {
+                CoreImage image = getImage();
+                if (image != null && leftSections != null) {
+                    int ay = CoreMath.toFixed(borderSize) +
+                        convertImageYtoLocalY(CoreMath.toFixed(image.getHotspotY() - borderSize));
+                    return new Double(CoreMath.toDouble(ay) / image.getHeight());
+                }
+                else {
+                    return new Double(0);
+                }
+            }
+        });
     }
     
     protected boolean isTransparent(int localX, int localY) {

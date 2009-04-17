@@ -500,18 +500,17 @@ public class Group extends Sprite {
     }
     
     /**
-        Packs this group so that its dimensions match the area covered by its children. 
+        Packs this group so that its bounds (x, y, width, and height) match the area covered by
+        its children.
         If this Group has a back buffer, the back buffer is resized if necessary.
-        <p>
-        The Group is not re-located. If child Sprites are have a negative x or y dimension,
-        (are positions to the top or left of the Group bounds) a portion of the Sprite may be
-        cropped.
     */
     public void pack() {
         Sprite[] snapshot = sprites;
         
         if (snapshot.length > 0) {
             // Integers
+            int minX = Integer.MAX_VALUE;
+            int minY = Integer.MAX_VALUE;
             int maxX = Integer.MIN_VALUE;
             int maxY = Integer.MIN_VALUE;
             Rect bounds = new Rect();
@@ -522,11 +521,29 @@ public class Group extends Sprite {
                     ((Group)sprite).pack();
                 }
                 sprite.getRelativeBounds(bounds);
+                minX = Math.min(minX, bounds.x);
+                minY = Math.min(minY, bounds.y);
                 maxX = Math.max(maxX, bounds.x + bounds.width);
                 maxY = Math.max(maxY, bounds.y + bounds.height);
             }
-            fNaturalWidth = CoreMath.toFixed(maxX);
-            fNaturalHeight = CoreMath.toFixed(maxY);
+            fNaturalWidth = CoreMath.toFixed(maxX - minX);
+            fNaturalHeight = CoreMath.toFixed(maxY - minY);
+            if (minX != 0) {
+                for (int i = 0; i < snapshot.length; i++) {
+                    Sprite sprite = snapshot[i];
+                    sprite.x.setAsFixed(sprite.x.getAsFixed() - CoreMath.toFixed(minX));
+                }
+                this.x.setAsFixed(this.x.getAsFixed() + CoreMath.toFixed(minX));
+                // TODO: should anchorX be changed?
+            }
+            if (minY != 0) {
+                for (int i = 0; i < snapshot.length; i++) {
+                    Sprite sprite = snapshot[i];
+                    sprite.y.setAsFixed(sprite.y.getAsFixed() - CoreMath.toFixed(minY));
+                }
+                this.y.setAsFixed(this.y.getAsFixed() + CoreMath.toFixed(minY));
+                // TODO: should anchorY be changed?
+            }
         }
         else {
             fNaturalWidth = 0;

@@ -356,9 +356,12 @@ public class Button extends ImageSprite {
         }
         
         return createLabeledButton(images, font, text, x, y, 
-            textX, textY, Sprite.CENTER, false, true);
+            textX, textY, 0.5, 0.5, false, true);
     }
-    
+
+    /**
+        @deprecated
+     */
     public static Button createLabeledButton(CoreImage[] images, CoreFont font, 
         String text, int x, int y, int textX, int textY, int textAnchor, boolean offsetPressedText)
     {
@@ -366,6 +369,14 @@ public class Button extends ImageSprite {
             textX, textY, textAnchor, false, offsetPressedText);
     }
     
+    public static Button createLabeledButton(CoreImage[] images, CoreFont font,
+        String text, int x, int y, int textX, int textY, double textAnchorX, double textAnchorY,
+        boolean offsetPressedText)
+    {
+        return createLabeledButton(images, font, text, x, y,
+            textX, textY, textAnchorX, textAnchorY, false, offsetPressedText);
+    }
+
     public static Button createLabeledToggleButton(CoreImage[] images, CoreFont font, 
         String text, int x, int y)
     {
@@ -393,14 +404,55 @@ public class Button extends ImageSprite {
         
         return createLabeledButton(images, font, text, x, y, 
             textX, textY,
-            Sprite.CENTER, true, true);
+            0.5, 0.5, true, true);
     }
     
-    public static Button createLabeledToggleButton(CoreImage[] images, CoreFont font, 
+    /**
+        @deprecated
+    */
+    public static Button createLabeledToggleButton(CoreImage[] images, CoreFont font,
         String text, int x, int y, int textX, int textY, int textAnchor, boolean offsetPressedText)
     {
         return createLabeledButton(images, font, text, x, y, 
             textX, textY, textAnchor, true, offsetPressedText);
+    }
+
+    public static Button createLabeledToggleButton(CoreImage[] images, CoreFont font,
+        String text, int x, int y, int textX, int textY, double textAnchorX, double textAnchorY,
+        boolean offsetPressedText)
+    {
+        return createLabeledButton(images, font, text, x, y,
+            textX, textY, textAnchorX, textAnchorY, true, offsetPressedText);
+    }
+
+    /**
+        @param images the images to use. If null, simple gray images are created to fit the text
+        @param font the font to use for rendering the text label. If null, the system font is used.
+        @param offsetPressedText Set to true to offset the button's text when the button is pressed.
+        @deprecated
+    */
+    public static Button createLabeledButton(CoreImage[] images, CoreFont font,
+        String text, int x, int y, int textX, int textY, int textAnchor,
+        boolean isToggleButton, boolean offsetPressedText)
+    {
+        double textAnchorX = 0;
+        double textAnchorY = 0;
+        // Hard-coded values are old
+        // hcenter/right/vcenter/bottom values from Sprite.
+        if ((textAnchor & 4) != 0) {
+            textAnchorX = 0.5;
+        }
+        else if ((textAnchor & 2) != 0) {
+            textAnchorX = 1.0;
+        }
+        if ((textAnchor & 32) != 0) {
+            textAnchorY = 0.5;
+        }
+        else if ((textAnchor & 16) != 0) {
+            textAnchorY = 1.0;
+        }
+        return createLabeledButton(images, font, text, x, y, textX, textY,
+                textAnchorX, textAnchorY, isToggleButton, offsetPressedText);
     }
     
     /**
@@ -409,7 +461,7 @@ public class Button extends ImageSprite {
         @param offsetPressedText Set to true to offset the button's text when the button is pressed.
     */
     public static Button createLabeledButton(CoreImage[] images, CoreFont font, 
-        String text, int x, int y, int textX, int textY, int textAnchor,
+        String text, int x, int y, int textX, int textY, double textAnchorX, double textAnchorY,
         boolean isToggleButton, boolean offsetPressedText)
     {
         if (font == null) {
@@ -419,18 +471,8 @@ public class Button extends ImageSprite {
         // Determine text label location
         int textWidth = font.getStringWidth(text);
         int textHeight = font.getHeight();
-        if ((textAnchor & HCENTER) != 0) {
-            textX -= textWidth / 2;
-        }
-        else if ((textAnchor & RIGHT) != 0) {
-            textX -= textWidth;
-        }
-        if ((textAnchor & VCENTER) != 0) {
-            textY -= textHeight / 2;
-        }
-        else if ((textAnchor & BOTTOM) != 0) {
-            textY -= textHeight;
-        }        
+        textX -= textAnchorX * textWidth;
+        textY -= textAnchorY * textHeight;
         
         // Create button image, if needed
         if (images == null) {

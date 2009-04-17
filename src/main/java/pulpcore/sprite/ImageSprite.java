@@ -37,8 +37,8 @@ import pulpcore.math.CoreMath;
 
 /**
     An image-based sprite. The image can be an {@link pulpcore.image.AnimatedImage}.
-    To ignore the CoreImage's hotspot, call {@link #setAnchor(int) } with an 
-    anchor other than Sprite.DEFAULT, like Sprite.NORTH_WEST.
+    The anchor of an ImageSprite is automatically set to the image's hotspot.
+    To ignore the  hotspot, use {@link Sprite#setAnchor(double, double) }.
     <p>
     By default, ImageSprites use pixel-level checking for intersection tests. Use 
     {@link #setPixelLevelChecks(boolean) } to disable this feature.
@@ -94,19 +94,7 @@ public class ImageSprite extends Sprite {
         if (h < 0) {
             height.set(image.getHeight());
         }
-        
-        anchorX.setAsFixed(
-        		CoreMath.div(
-        				CoreMath.toFixed(image.getHotspotX()),
-        				CoreMath.toFixed(image.getWidth()))
-        );
-        
-        anchorY.setAsFixed(
-        		CoreMath.div(
-        				CoreMath.toFixed(image.getHotspotY()),
-        				CoreMath.toFixed(image.getHeight())
-        		)
-        );
+        setAnchorToHotSpot();
     }
     
     /**
@@ -142,6 +130,7 @@ public class ImageSprite extends Sprite {
         if (h < 0) {
             height.set(image.getHeight());
         }
+        setAnchorToHotSpot();
     }
 
     public boolean isOpaque() {
@@ -156,21 +145,63 @@ public class ImageSprite extends Sprite {
     }
     
     /**
-        Sets this ImageSprite's internal image. The width and height of this ImageSprite are
-        not changed.
+        Sets this ImageSprite's internal image. The width, height, and anchor of this ImageSprite
+        are not changed.
     */
     public void setImage(String imageAsset) {
         setImage(CoreImage.load(imageAsset));
     }
     
     /**
-        Sets this ImageSprite's internal image. The width and height of this ImageSprite are
-        not changed.
+        Sets this ImageSprite's internal image. The width, height, and anchor of this ImageSprite
+        are not changed.
     */
     public void setImage(CoreImage image) {
         if (this.image != image) {
             this.image = image;
             setDirty(true);
+        }
+    }
+    
+    /**
+        {@inheritDoc}
+        If the anchor is set to {@link Sprite#DEFAULT}, this method
+        calls {@link #setAnchorToHotSpot()}.
+        @deprecated Compass directions are being phased out -
+        Use {@link Sprite#setAnchor(double, double)} or {@link #setAnchorToHotSpot()} instead.
+    */
+    public void setAnchor(int anchor) {
+        if (anchor == DEFAULT) {
+            setAnchorToHotSpot();
+        }
+        else {
+            super.setAnchor(anchor);
+        }
+    }
+
+    /**
+        Sets the anchor to the underlying image's hotspot. An image's hotspot is defined at build
+        time with a <a href="http://code.google.com/p/pulpcore/wiki/PropertyFiles">property
+        file</a>.
+     */
+    public void setAnchorToHotSpot() {
+        if (image != null) {
+            anchorX.setAsFixed(
+                    CoreMath.div(
+                            CoreMath.toFixed(image.getHotspotX()),
+                            CoreMath.toFixed(image.getWidth()))
+            );
+
+            anchorY.setAsFixed(
+                    CoreMath.div(
+                            CoreMath.toFixed(image.getHotspotY()),
+                            CoreMath.toFixed(image.getHeight())
+                    )
+            );
+        }
+        else {
+            anchorX.set(0);
+            anchorY.set(0);
         }
     }
     

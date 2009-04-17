@@ -36,7 +36,7 @@ import pulpcore.Stage;
 import pulpcore.animation.Property;
 
 /**
-    Solid-colored rectangluar shaped sprite.
+    Solid-colored rectangular shaped sprite.
 */
 public class FilledSprite extends Sprite {
     
@@ -109,28 +109,6 @@ public class FilledSprite extends Sprite {
         
         fillColor.update(elapsedTime);
         borderColor.update(elapsedTime);
-    }
-    
-    // Override the center anchor since FilledRect is a vector object
-    // (Raster objects need the center to be floor() so that centered images don't
-    // look blurry)
-    
-    protected int getAnchorX() {
-        if ((getAnchor() & HCENTER) != 0) {
-            return getNaturalWidth() / 2;
-        }
-        else {
-            return super.getAnchorX();
-        }
-    }
-    
-    protected int getAnchorY() {
-        if ((getAnchor() & VCENTER) != 0) {
-            return getNaturalHeight() / 2;
-        }
-        else {
-            return super.getAnchorY();
-        }
     }
     
     protected void drawSprite(CoreGraphics g) {

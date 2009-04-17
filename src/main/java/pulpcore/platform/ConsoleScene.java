@@ -31,23 +31,15 @@ package pulpcore.platform;
 
 import java.util.Iterator;
 import java.util.LinkedList;
-import pulpcore.animation.Property;
-import pulpcore.animation.PropertyListener;
 import pulpcore.CoreSystem;
 import pulpcore.image.Colors;
 import pulpcore.image.CoreFont;
-import pulpcore.image.CoreGraphics;
-import pulpcore.image.CoreImage;
 import pulpcore.Input;
-import pulpcore.math.CoreMath;
-import pulpcore.math.Rect;
 import pulpcore.scene.Scene2D;
 import pulpcore.sprite.Button;
 import pulpcore.sprite.FilledSprite;
-import pulpcore.sprite.Group;
 import pulpcore.sprite.Label;
 import pulpcore.sprite.ScrollPane;
-import pulpcore.sprite.Sprite;
 import pulpcore.Stage;
 import pulpcore.util.StringUtil;
 
@@ -68,15 +60,15 @@ public class ConsoleScene extends Scene2D {
         add(new FilledSprite(Colors.WHITE));
         
         backButton = Button.createLabeledButton("OK", Stage.getWidth() - 5, Stage.getHeight() - 5);
-        backButton.setAnchor(Sprite.SOUTH_EAST);
+        backButton.setAnchor(1, 1);
         backButton.setKeyBinding(new int[] { Input.KEY_ESCAPE, Input.KEY_ENTER });
         
         clearButton = Button.createLabeledButton("Clear", 5, Stage.getHeight() - 5);
-        clearButton.setAnchor(Sprite.SOUTH_WEST);
+        clearButton.setAnchor(0, 1);
         
         copyButton = Button.createLabeledButton("Copy to Clipboard", 
             clearButton.x.getAsInt() + clearButton.width.getAsInt() + 5, Stage.getHeight() - 5);
-        copyButton.setAnchor(Sprite.SOUTH_WEST);
+        copyButton.setAnchor(0, 1);
         
         textbox = new ScrollPane(5, 5, Stage.getWidth() - 10, 
             Stage.getHeight() - 15 - clearButton.height.getAsInt());

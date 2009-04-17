@@ -36,9 +36,6 @@ import pulpcore.Build;
 import pulpcore.CoreSystem;
 import pulpcore.image.Colors;
 import pulpcore.image.CoreFont;
-import pulpcore.image.CoreGraphics;
-import pulpcore.image.CoreImage;
-import pulpcore.math.CoreMath;
 import pulpcore.net.Download;
 import pulpcore.platform.ConsoleScene;
 import pulpcore.sprite.Button;
@@ -169,7 +166,7 @@ public class LoadingScene extends Scene2D {
         int y = Stage.getHeight()/4;
         for (int i = 0; i < strings.length; i++) {
             Label label = new Label(font, strings[i], Stage.getWidth() / 2, y);
-            label.setAnchor(Sprite.NORTH);
+            label.setAnchor(0.5, 0);
             y += label.height.getAsInt() + 2;
             errorLayer.add(label);
         }
@@ -177,7 +174,7 @@ public class LoadingScene extends Scene2D {
         tryAgainButton = Button.createLabeledButton(retryButtonText,  
             Stage.getWidth() / 2,
             Stage.getHeight() * 3 / 4);
-        tryAgainButton.setAnchor(Sprite.SOUTH);
+        tryAgainButton.setAnchor(0.5, 1);
         errorLayer.add(tryAgainButton);
     }
     

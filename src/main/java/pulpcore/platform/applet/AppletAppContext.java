@@ -387,8 +387,9 @@ public final class AppletAppContext extends AppContext {
                 return refreshRate;
             }
         }
-        catch (Exception ex) {
-            // No known exception should be thrown, but it's here just in case.
+        catch (Throwable t) {
+            // Some old VMs will throw "java.lang.InternalError: Could not get display mode"
+            // On device.getDisplayMode(). Perhaps when ddraw is disabled?
             return 0;
         }
     }

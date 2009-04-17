@@ -30,8 +30,6 @@
 package pulpcore.sprite;
 
 import java.util.WeakHashMap;
-import pulpcore.Build;
-import pulpcore.CoreSystem;
 import pulpcore.animation.Bool;
 import pulpcore.animation.Easing;
 import pulpcore.animation.Fixed;
@@ -71,77 +69,92 @@ public abstract class Sprite implements PropertyListener {
     
     /** 
         Constant for positioning the anchor point at the "default" location
-        of the Sprite, which is at the start its upper-left corner and can
-        be changed by setting anchorX and anchorY property.  One exception is
-        ImageSprite which uses the image's hotspot at the default anchor. This
-        also can be modified any time by changing properties. 
+        of the Sprite, which is usually its upper-left corner. One exception is
+        ImageSprite which uses the image's hotspot at the default anchor. 
         This is the default anchor.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int DEFAULT = 0;
     
     /** Constant for positioning the anchor point on the left side of the sprite. */
-    /* package-private */ static final int LEFT = 1;
+    private static final int LEFT = 1;
     
     /** Constant for positioning the anchor point on the right side of the sprite. */
-    /* package-private */ static final int RIGHT = 2;
+    private static final int RIGHT = 2;
     
     /** Constant for positioning the anchor point in the horizontal center of the sprite. */
-    /* package-private */ static final int HCENTER = 4;
+    private static final int HCENTER = 4;
     
     /** Constant for positioning the anchor point on the upper side of the sprite. */
-    /* package-private */ static final int TOP = 8;
+    private static final int TOP = 8;
     
     /** Constant for positioning the anchor point on the lower side of the sprite. */
-    /* package-private */ static final int BOTTOM = 16;
+    private static final int BOTTOM = 16;
     
     /** Constant for positioning the anchor point in the vertical center of the sprite. */
-    /* package-private */ static final int VCENTER = 32;
+    private static final int VCENTER = 32;
     
     /** 
         Constant for positioning the anchor point in the upper center of the sprite.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int NORTH = TOP | HCENTER;
     
     /** 
         Constant for positioning the anchor point in the lower center of the sprite.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int SOUTH = BOTTOM | HCENTER;
     
     /** 
         Constant for positioning the anchor point in the left center of the sprite.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int WEST = LEFT | VCENTER;
     
     /** 
         Constant for positioning the anchor point in the right center of the sprite.
-        Equivalent to RIGHT | VCENTER.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int EAST = RIGHT | VCENTER;
     
     /** 
         Constant for positioning the anchor point in the upper left corner of the sprite.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int NORTH_WEST = TOP | LEFT;
     
     /** 
         Constant for positioning the anchor point in the upper right corner of the sprite.
-        Equivalent to TOP | RIGHT.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int NORTH_EAST = TOP | RIGHT;
     
     /** 
         Constant for positioning the anchor point in the lower left corner of the sprite.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int SOUTH_WEST = BOTTOM | LEFT;
     
     /** 
         Constant for positioning the anchor point in the lower right corner of the sprite.
-        Equivalent to BOTTOM | RIGHT.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int SOUTH_EAST = BOTTOM | RIGHT;
     
     /** 
         Constant for positioning the anchor point in the center of the sprite.
+        @deprecated Compass directions are being phased out -
+        Use {@link #setAnchor(double, double)} instead.
     */
     public static final int CENTER = VCENTER | HCENTER;
     
@@ -167,13 +180,13 @@ public abstract class Sprite implements PropertyListener {
     /** The height of this Sprite. */
     public final Fixed height = new Fixed(this);
     
-    /**
+    /** 
         The x anchor point of this Sprite, in range from 0.0 to 1.0. A value of
         0.0 is far left point of the Sprite and a value of 1.0 is far right point.
         The default is 0.0.
     */
     public final Fixed anchorX = new Fixed(this);
-    
+
     /**
 	    The y anchor point of this Sprite, in range from 0.0 to 1.0. A value of
 	    0.0 is far top point of the Sprite and a value of 1.0 is far bottom point.
@@ -210,7 +223,6 @@ public abstract class Sprite implements PropertyListener {
     public final Bool pixelSnapping = new Bool(this, false);
     
     private Group parent;
-    private int anchor = DEFAULT;
     private int cursor = -1;
     private BlendMode blendMode = null;
     private SpriteFilter filter;
@@ -554,7 +566,15 @@ public abstract class Sprite implements PropertyListener {
         }
         
         // Adjust for anchor
-        transform.translate(-getAnchorX(), -getAnchorY());
+        int anchorLocalX = CoreMath.mul(anchorX.getAsFixed(), naturalWidth);
+        int anchorLocalY = CoreMath.mul(anchorY.getAsFixed(), naturalHeight);
+        if (!(this instanceof FilledSprite)) {
+            // Snap to the nearest pixel on raster Sprites (everything but FilledSprite)
+            // so that centered sprites with odd dimensions don'y appear blurry
+            anchorLocalX = CoreMath.round(anchorLocalX);
+            anchorLocalY = CoreMath.round(anchorLocalY);
+        }
+        transform.translate(-anchorLocalX, -anchorLocalY);
 
         // Snap to the nearest integer location
         if (pixelSnapping.get()) {
@@ -616,46 +636,6 @@ public abstract class Sprite implements PropertyListener {
     }
     
     /**
-        @return the fixed-point x anchor, typically from 0 to 
-        {@code getNaturalWidth() - CoreMath.ONE}.
-    */
-    protected int getAnchorX() {
-    	if (anchor == DEFAULT) {
-            return CoreMath.round(CoreMath.mul(anchorX.getAsFixed(), getNaturalWidth()));
-        }
-    	else if ((anchor & HCENTER) != 0) {
-            // Special case: make sure centered sprites are drawn on an integer boundary
-            return CoreMath.floor(getNaturalWidth() / 2);
-        }
-        else if ((anchor & RIGHT) != 0) {
-            return getNaturalWidth() - CoreMath.ONE;
-        }
-        else {
-        	return 0;
-        }
-    }
-    
-    /**
-        @return the fixed-point y anchor, typically from 0 to 
-        {@code getNaturalHeight() - CoreMath.ONE}.
-    */
-    protected int getAnchorY() {
-    	if (anchor == DEFAULT) {
-    		return CoreMath.round(CoreMath.mul(anchorY.getAsFixed(), getNaturalHeight()));
-    	}
-        if ((anchor & VCENTER) != 0) {
-            // Special case: make sure centered sprites are drawn on an integer boundary
-            return CoreMath.floor(getNaturalHeight() / 2);
-        }
-        else if ((anchor & BOTTOM) != 0) {
-            return getNaturalHeight() - CoreMath.ONE;
-        }
-        else {
-        	return 0;
-        }
-    }
-    
-    /**
         Sets the anchor of this Sprite. The anchor affects where the Sprite is drawn in
         relation to its (x, y) location, and can be one of {@link #DEFAULT}, 
         {@link #NORTH}, {@link #SOUTH}, {@link #WEST}, {@link #EAST},
@@ -671,19 +651,57 @@ public abstract class Sprite implements PropertyListener {
           +----+----+
         SW     S     SE
         </pre>
-        The {@link #DEFAULT} anchor uses {@link #anchorX} and {@link #anchorY} properties
-        to determine anchor location. The default is {@link #NORTH_WEST} for most Sprites
-        (except for ImageSprites, which set the CoreImage's hotspot as the anchor).  
+        The {@link #DEFAULT} anchor is equivalent to {@link #NORTH_WEST} for most Sprites (except
+        for ImageSprites, which use the CoreImage's hotspot as the anchor).
+        @deprecated Compass directions are being phased out - 
+        Use {@link #setAnchor(double, double)} instead.
     */
-    public final void setAnchor(int anchor) {
-        if (this.anchor != anchor) {
-            this.anchor = anchor;
-            setDirty(true);
+    public void setAnchor(int anchor) {
+        int ax = 0;
+        int ay = 0;
+        if ((anchor & HCENTER) != 0) {
+            ax = CoreMath.ONE_HALF;
         }
+        else if ((anchor & RIGHT) != 0) {
+            ax = CoreMath.ONE;
+    }
+        if ((anchor & VCENTER) != 0) {
+            ay = CoreMath.ONE_HALF;
+        }
+        else if ((anchor & BOTTOM) != 0) {
+            ay = CoreMath.ONE;
+        }
+        this.anchorX.setAsFixed(ax);
+        this.anchorY.setAsFixed(ay);
     }
     
-    public final int getAnchor() {
-        return anchor;
+    /**
+        Sets the anchor of this Sprite. The anchor affects where the Sprite is drawn in
+        relation to its (x, y) location. The anchor of each axis is typically from 0.0
+        (top/left) and 1.0 (bottom/right):
+        <pre>
+        (0.0,0.0)  (0.5,0.0)  (1.0,0.0)
+            +----------+----------+
+            |                     |
+            |                     |
+            |                     |
+            |      (0.5,0.5)      |
+  (0.0,0.5) +          *          + (1.0,0.5)
+            |                     |
+            |                     |
+            |                     |
+            |                     |
+            +----------+----------+
+        (0.0,0.0)  (0.5,1.0)  (1.0,1.0)
+        </pre>
+        For example, to center the Sprite at it's (x,y) location, use
+        <code>sprite.setAnchor(0.5, 0.5);</code>
+        @see #anchorX
+        @see #anchorY
+    */
+    public final void setAnchor(double anchorX, double anchorY) {
+        this.anchorX.set(anchorX);
+        this.anchorY.set(anchorY);
     }
     
     /**
@@ -955,7 +973,7 @@ public abstract class Sprite implements PropertyListener {
     */
     public void propertyChange(Property property) {
         // The following properties don't change the contents, by default:
-        // x, y, width, height, alpha, angle, visible, enabled, pixelSnapping
+        // x, y, width, height, anchorX, anchorY, alpha, angle, visible, enabled, pixelSnapping
         setDirty(true, false);
         if (property == angle) {
             cosAngle = CoreMath.cos(angle.getAsFixed());

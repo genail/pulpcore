@@ -17,7 +17,7 @@
     <groupId>com.interactivepulp</groupId>
     <artifactId>pulpcore</artifactId>
     <packaging>jar</packaging>
-    <version>0.11.5-SNAPSHOT</version>
+    <version>0.11.5</version>
     
     <name>Pulpcore Library</name>
     <url>http://www.interactivepulp.com/pulpcore/</url>

@@ -327,14 +327,14 @@ public class ScrollPane extends Group {
             }
             
             if (orientation == Slider.VERTICAL) {
-                super.setAnchor(Sprite.NORTH_EAST);
+                super.setAnchor(1, 0);
                 this.x.bindTo(ScrollPane.this.width);
                 this.y.set(0);
                 slider.setRange(0, getContentHeight(), length);
                 bindValue = viewport.scrollY;
             }
             else {
-                super.setAnchor(Sprite.SOUTH_WEST);
+                super.setAnchor(0, 1);
                 this.x.set(0);
                 this.y.bindTo(ScrollPane.this.height);
                 slider.setRange(0, getContentWidth(), length);
